@@ -163,6 +163,6 @@ N'hésitez pas à ouvrir des tickets ou à soumettre des pull requests pour corr
 ---
 
 ## Author (English) / Auteur (Français)
-Developed by [Your Name].
-Développé par [Votre Nom].
+Developed by aymericscientist
+Développé par aymericscientist
 
