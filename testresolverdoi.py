@@ -3,8 +3,6 @@
 import requests
 import pandas as pd
 from difflib import SequenceMatcher
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 from tqdm import tqdm
@@ -108,17 +106,15 @@ def match_fnege_2022(df):
     """
     Ajoute une colonne 'Classement FNEGE 2022' en fonction des métadonnées.
     """
-    print("\nVeuillez sélectionner le fichier FNEGE 2022...")
-    Tk().withdraw()
-    fnege_file_path = askopenfilename(title="Sélectionner le fichier FNEGE 2022", filetypes=[("Excel Files", "*.xlsx")])
+    url = "https://raw.githubusercontent.com/aymericscientist/tool_representation_academic_reference/0cfe2facb0100b05538a9b547e0fc3e1aa79a701/CLASSEMENT_FNEGE_2022_FORMATED.xlsx"
 
-    if not fnege_file_path:
-        print("Aucun fichier FNEGE sélectionné, aucun classement ne sera ajouté.")
+    print("Téléchargement du fichier FNEGE 2022 depuis GitHub...")
+    try:
+        fnege_data = pd.read_excel(url)
+    except Exception as e:
+        print(f"Erreur lors du téléchargement ou du chargement du fichier FNEGE 2022 : {e}")
         df["Classement FNEGE 2022"] = None
         return df
-
-    print(f"Chargement du fichier FNEGE 2022 : {fnege_file_path}")
-    fnege_data = pd.read_excel(fnege_file_path)
 
     # Normalisation des colonnes nécessaires
     fnege_data["TITLE"] = fnege_data["TITLE"].str.lower()
@@ -245,6 +241,9 @@ def main():
     Fonction principale.
     """
     # Demander à l'utilisateur de sélectionner un fichier TXT
+    from tkinter import Tk
+    from tkinter.filedialog import askopenfilename
+
     Tk().withdraw()  # Masquer la fenêtre Tkinter principale
     file_path = askopenfilename(title="Sélectionner le fichier TXT", filetypes=[("Text Files", "*.txt")])
 
