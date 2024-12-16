@@ -1,20 +1,51 @@
 # -*- coding: utf-8 -*-
 
-import requests
-import pandas as pd
-from difflib import SequenceMatcher
-from openpyxl import load_workbook
-from openpyxl.styles import PatternFill
-from tqdm import tqdm
-import time
-import threading
-from queue import Queue
+import sys  # Import rapide pour gérer les sorties et erreurs critiques
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename
+
+
+def load_txt_to_dataframe(file_path):
+    """
+    Charge les données d'un fichier TXT et les transforme en un DataFrame.
+    """
+    import pandas as pd
+    from tqdm import tqdm
+
+    with open(file_path, 'r', encoding='utf-8') as file:
+        lines = list(tqdm(file.readlines(), desc="Lecture des lignes du fichier TXT", unit="ligne"))
+
+    # Construire un DataFrame avec une seule colonne : Source Reference
+    data = {"Source Reference": [line.strip() for line in lines if line.strip()]}
+    df = pd.DataFrame(data)
+    return df
+
+
+def calculate_similarity(source, target):
+    """
+    Calcule une similarité basée sur la correspondance des mots significatifs entre source et target.
+    """
+    import pandas as pd
+
+    if pd.isna(source) or pd.isna(target):
+        return 0
+
+    source = str(source).lower()
+    target = str(target).lower()
+
+    target_words = [word for word in target.split() if len(word) > 3]
+
+    matches = [word for word in target_words if word in source]
+    return len(matches) / len(target_words) * 100 if target_words else 0
 
 
 def resolve_doi(reference_queue, result_queue):
     """
     Résout les DOI pour une file de références en utilisant l'API CrossRef.
     """
+    import time
+    import requests
+
     url = "https://api.crossref.org/works"
 
     while not reference_queue.empty():
@@ -44,8 +75,9 @@ def fetch_metadata_from_doi(doi):
     """
     Récupère les métadonnées à partir d'un DOI en utilisant l'API CrossRef.
     """
-    url = f"https://api.crossref.org/works/{doi}"
+    import requests
     try:
+        url = f"https://api.crossref.org/works/{doi}"
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
@@ -72,79 +104,16 @@ def fetch_metadata_from_doi(doi):
         return {"Title": None, "Journal": None, "Authors": None, "pISSN_PRINT": None, "eISSN": None}
 
 
-def calculate_similarity(source, target):
-    """
-    Calcule une similarité basée sur la correspondance des mots significatifs entre source et target.
-    """
-    if pd.isna(source) or pd.isna(target):
-        return 0
-
-    source = str(source).lower()
-    target = str(target).lower()
-
-    # Découper les mots en excluant les mots courts ou communs
-    target_words = [word for word in target.split() if len(word) > 3]
-
-    matches = [word for word in target_words if word in source]
-    return len(matches) / len(target_words) * 100 if target_words else 0
-
-
-def load_txt_to_dataframe(file_path):
-    """
-    Charge les données d'un fichier TXT et les transforme en un DataFrame.
-    """
-    with open(file_path, 'r', encoding='utf-8') as file:
-        lines = list(tqdm(file.readlines(), desc="Lecture des lignes du fichier TXT", unit="ligne"))
-
-    # Construire un DataFrame avec une seule colonne : Source Reference
-    data = {"Source Reference": [line.strip() for line in lines if line.strip()]}
-    df = pd.DataFrame(data)
-    return df
-
-
-def match_fnege_2022(df):
-    """
-    Ajoute une colonne 'Classement FNEGE 2022' en fonction des métadonnées.
-    """
-    url = "https://raw.githubusercontent.com/aymericscientist/tool_representation_academic_reference/0cfe2facb0100b05538a9b547e0fc3e1aa79a701/CLASSEMENT_FNEGE_2022_FORMATED.xlsx"
-
-    print("Téléchargement du fichier FNEGE 2022 depuis GitHub...")
-    try:
-        fnege_data = pd.read_excel(url)
-    except Exception as e:
-        print(f"Erreur lors du téléchargement ou du chargement du fichier FNEGE 2022 : {e}")
-        df["Classement FNEGE 2022"] = None
-        return df
-
-    # Normalisation des colonnes nécessaires
-    fnege_data["TITLE"] = fnege_data["TITLE"].str.lower()
-    fnege_data["pISSN_PRINT"] = fnege_data["pISSN_PRINT"].astype(str).str.lower()
-    fnege_data["eISSN"] = fnege_data["eISSN"].astype(str).str.lower()
-
-    df["Classement FNEGE 2022"] = None
-
-    for index, row in tqdm(df.iterrows(), desc="Correspondance FNEGE", total=len(df)):
-        pISSN = str(row["pISSN_PRINT"]).lower() if pd.notna(row["pISSN_PRINT"]) else None
-        eISSN = str(row["eISSN"]).lower() if pd.notna(row["eISSN"]) else None
-        journal = str(row["Journal"]).lower() if pd.notna(row["Journal"]) else None
-
-        match = fnege_data[
-            (fnege_data["pISSN_PRINT"] == pISSN) |
-            (fnege_data["eISSN"] == eISSN) |
-            (fnege_data["TITLE"] == journal)
-        ]
-
-        if not match.empty:
-            df.at[index, "Classement FNEGE 2022"] = match.iloc[0]["Classement_2022"]
-
-    return df
-
-
 def process_references(df):
     """
     Résout les DOI et récupère les métadonnées pour chaque référence en mode asynchrone.
     """
     print("\nTraitement des références en cours...\n")
+    from queue import Queue
+    from threading import Thread
+    from tqdm import tqdm
+    import pandas as pd
+
     reference_queue = Queue()
     result_queue = Queue()
 
@@ -153,7 +122,7 @@ def process_references(df):
 
     threads = []
     for _ in range(5):  # Créer 5 threads pour paralléliser les requêtes
-        thread = threading.Thread(target=resolve_doi, args=(reference_queue, result_queue))
+        thread = Thread(target=resolve_doi, args=(reference_queue, result_queue))
         thread.start()
         threads.append(thread)
 
@@ -178,7 +147,6 @@ def process_references(df):
     metadata_df = pd.DataFrame(metadata)
     df = pd.concat([df, metadata_df], axis=1)
 
-    # Ajouter les indices de similarité
     print("Calcul des indices de similarité...")
     df["Similarity (Source vs Title)"] = df.apply(
         lambda row: calculate_similarity(row["Source Reference"], row["Title"]), axis=1
@@ -190,36 +158,44 @@ def process_references(df):
     return df
 
 
-def apply_conditional_formatting(output_file):
+def match_fnege_2022(df):
     """
-    Applique une mise en forme conditionnelle aux colonnes d'indices de similarité dans le fichier Excel.
+    Ajoute une colonne 'Classement FNEGE 2022' en fonction des métadonnées.
     """
-    wb = load_workbook(output_file)
-    ws = wb.active
+    import pandas as pd
+    from tqdm import tqdm
 
-    # Définir les couleurs
-    green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-    orange_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
-    red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+    url = "https://raw.githubusercontent.com/aymericscientist/tool_representation_academic_reference/0cfe2facb0100b05538a9b547e0fc3e1aa79a701/CLASSEMENT_FNEGE_2022_FORMATED.xlsx"
 
-    # Identifier les colonnes des scores de similarité
-    similarity_columns = ["Similarity (Source vs Title)", "Similarity (Source vs Journal)"]
-    col_indices = {col: idx + 1 for idx, col in enumerate(ws[1]) if col.value in similarity_columns}
+    print("Téléchargement du fichier FNEGE 2022 depuis GitHub...")
+    try:
+        fnege_data = pd.read_excel(url)
+    except Exception as e:
+        print(f"Erreur lors du téléchargement ou du chargement du fichier FNEGE 2022 : {e}")
+        df["Classement FNEGE 2022"] = None
+        return df
 
-    for col_name, col_idx in col_indices.items():
-        for row in range(2, ws.max_row + 1):  # Commencer à partir de la deuxième ligne (données)
-            cell = ws.cell(row=row, column=col_idx)
-            if cell.value is not None:
-                if cell.value == 100 or 80 <= cell.value < 100:
-                    cell.fill = green_fill
-                elif 60 <= cell.value < 80:
-                    cell.fill = orange_fill
-                elif cell.value < 60:
-                    cell.fill = red_fill
+    fnege_data["TITLE"] = fnege_data["TITLE"].str.lower()
+    fnege_data["pISSN_PRINT"] = fnege_data["pISSN_PRINT"].astype(str).str.lower()
+    fnege_data["eISSN"] = fnege_data["eISSN"].astype(str).str.lower()
 
-    # Sauvegarder le fichier Excel avec la mise en forme
-    wb.save(output_file)
-    print(f"Mise en forme conditionnelle appliquée dans : {output_file}")
+    df["Classement FNEGE 2022"] = None
+
+    for index, row in tqdm(df.iterrows(), desc="Correspondance FNEGE", total=len(df)):
+        pISSN = str(row["pISSN_PRINT"]).lower() if pd.notna(row["pISSN_PRINT"]) else None
+        eISSN = str(row["eISSN"]).lower() if pd.notna(row["eISSN"]) else None
+        journal = str(row["Journal"]).lower() if pd.notna(row["Journal"]) else None
+
+        match = fnege_data[
+            (fnege_data["pISSN_PRINT"] == pISSN) |
+            (fnege_data["eISSN"] == eISSN) |
+            (fnege_data["TITLE"] == journal)
+        ]
+
+        if not match.empty:
+            df.at[index, "Classement FNEGE 2022"] = match.iloc[0]["Classement_2022"]
+
+    return df
 
 
 def export_to_excel(df, output_file):
@@ -227,47 +203,69 @@ def export_to_excel(df, output_file):
     Exporte le DataFrame avec une barre de progression au format Excel.
     """
     print("Export des données vers Excel...")
-    with tqdm(total=len(df), desc="Écriture dans Excel", unit="ligne") as pbar:
-        writer = pd.ExcelWriter(output_file, engine="openpyxl")
-        df.to_excel(writer, index=False)
-        writer.close()
-        pbar.update(len(df))
+    from tqdm import tqdm
+    from openpyxl import Workbook
 
+    wb = Workbook()
+    ws = wb.active
+    ws.append(list(df.columns))
+    for row in tqdm(df.values, desc="Écriture dans Excel", unit="ligne"):
+        ws.append(row.tolist())
+
+    wb.save(output_file)
     print(f"Les résultats ont été exportés dans : {output_file}")
+
+
+def apply_conditional_formatting(output_file):
+    """
+    Applique une mise en forme conditionnelle aux colonnes d'indices de similarité dans le fichier Excel.
+    """
+    from openpyxl import load_workbook
+    from openpyxl.styles import PatternFill
+
+    wb = load_workbook(output_file)
+    ws = wb.active
+
+    green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    orange_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+    red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+
+    for col_name in ["Similarity (Source vs Title)", "Similarity (Source vs Journal)"]:
+        col_idx = [cell.column for cell in ws[1] if cell.value == col_name][0]
+        for row in range(2, ws.max_row + 1):
+            cell = ws.cell(row=row, column=col_idx)
+            if cell.value is not None:
+                if cell.value >= 80:
+                    cell.fill = green_fill
+                elif 60 <= cell.value < 80:
+                    cell.fill = orange_fill
+                elif cell.value < 60:
+                    cell.fill = red_fill
+
+    wb.save(output_file)
+    print(f"Mise en forme conditionnelle appliquée dans : {output_file}")
 
 
 def main():
     """
     Fonction principale.
     """
-    # Demander à l'utilisateur de sélectionner un fichier TXT
-    from tkinter import Tk
-    from tkinter.filedialog import askopenfilename
-
-    Tk().withdraw()  # Masquer la fenêtre Tkinter principale
+    Tk().withdraw()
     file_path = askopenfilename(title="Sélectionner le fichier TXT", filetypes=[("Text Files", "*.txt")])
 
     if not file_path:
         print("Aucun fichier sélectionné, le programme va se fermer.")
         return
 
-    # Charger les données depuis le fichier TXT
     print(f"Lecture des données depuis le fichier : {file_path}")
     df = load_txt_to_dataframe(file_path)
-
-    # Résoudre les DOI et récupérer les métadonnées
     df = process_references(df)
-
-    # Ajouter le classement FNEGE 2022
     df = match_fnege_2022(df)
-
-    # Exporter les résultats
     output_file = file_path.replace(".txt", "_resolved_dois.xlsx")
     export_to_excel(df, output_file)
-
-    # Appliquer la mise en forme conditionnelle
     apply_conditional_formatting(output_file)
 
 
 if __name__ == "__main__":
     main()
+    sys.exit(0)
