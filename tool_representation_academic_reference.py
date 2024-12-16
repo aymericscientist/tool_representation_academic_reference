@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 
 import sys  # Import rapide pour gérer les sorties et erreurs critiques
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
+from tkinter import Tk # Tk est utilisé pour gérer la fenêtre graphique sans afficher la fenêtre principale Tkinter
+from tkinter.filedialog import askopenfilename  # Permet d'ouvrir une boîte de dialogue pour sélectionner un fichier
 
 
 def load_txt_to_dataframe(file_path):
     """
     Charge les données d'un fichier TXT et les transforme en un DataFrame.
     """
-    import pandas as pd
-    from tqdm import tqdm
+    import pandas as pd # Bibliothèque utilisée pour manipuler et analyser des données sous forme de tableaux (DataFrame)
+    from tqdm import tqdm # Permet d'afficher une barre de progression pour suivre l'avancement des boucles ou des traitements
 
     with open(file_path, 'r', encoding='utf-8') as file:
         lines = list(tqdm(file.readlines(), desc="Lecture des lignes du fichier TXT", unit="ligne"))
@@ -25,7 +25,7 @@ def calculate_similarity(source, target):
     """
     Calcule une similarité basée sur la correspondance des mots significatifs entre source et target.
     """
-    import pandas as pd
+    import pandas as pd # Bibliothèque utilisée pour manipuler et analyser des données sous forme de tableaux (DataFrame)
 
     if pd.isna(source) or pd.isna(target):
         return 0
@@ -43,8 +43,8 @@ def resolve_doi(reference_queue, result_queue):
     """
     Résout les DOI pour une file de références en utilisant l'API CrossRef.
     """
-    import time
-    import requests
+    import time # Fournit des fonctions pour gérer les pauses et mesurer le temps écoulé
+    import requests # Bibliothèque utilisée pour envoyer des requêtes HTTP et interagir avec des APIs ou des sites web
 
     url = "https://api.crossref.org/works"
 
@@ -75,7 +75,7 @@ def fetch_metadata_from_doi(doi):
     """
     Récupère les métadonnées à partir d'un DOI en utilisant l'API CrossRef.
     """
-    import requests
+    import requests # Bibliothèque utilisée pour envoyer des requêtes HTTP et interagir avec des APIs ou des sites web
     try:
         url = f"https://api.crossref.org/works/{doi}"
         response = requests.get(url, timeout=10)
@@ -109,10 +109,10 @@ def process_references(df):
     Résout les DOI et récupère les métadonnées pour chaque référence en mode asynchrone.
     """
     print("\nTraitement des références en cours...\n")
-    from queue import Queue
-    from threading import Thread
-    from tqdm import tqdm
-    import pandas as pd
+    from queue import Queue # Permet de gérer une file d'attente pour organiser et traiter les tâches de manière asynchrone
+    from threading import Thread  # Permet d'exécuter plusieurs tâches en parallèle grâce au multi-threading
+    from tqdm import tqdm # Utilisé pour afficher une barre de progression dans les boucles ou les opérations longues
+    import pandas as pd # Bibliothèque utilisée pour manipuler et analyser des données sous forme de tableaux (DataFrame)
 
     reference_queue = Queue()
     result_queue = Queue()
@@ -162,8 +162,8 @@ def match_fnege_2022(df):
     """
     Ajoute une colonne 'Classement FNEGE 2022' en fonction des métadonnées.
     """
-    import pandas as pd
-    from tqdm import tqdm
+    import pandas as pd # Bibliothèque utilisée pour manipuler et analyser des données sous forme de tableaux (DataFrame)
+    from tqdm import tqdm # Utilisé pour afficher une barre de progression dans les boucles ou les opérations longues
 
     url = "https://raw.githubusercontent.com/aymericscientist/tool_representation_academic_reference/0cfe2facb0100b05538a9b547e0fc3e1aa79a701/CLASSEMENT_FNEGE_2022_FORMATED.xlsx"
 
@@ -203,8 +203,8 @@ def export_to_excel(df, output_file):
     Exporte le DataFrame avec une barre de progression au format Excel.
     """
     print("Export des données vers Excel...")
-    from tqdm import tqdm
-    from openpyxl import Workbook
+    from tqdm import tqdm # Utilisé pour afficher une barre de progression lors des traitements ou des boucles
+    from openpyxl import Workbook # Permet de créer et manipuler des fichiers Excel au format .xlsx
 
     wb = Workbook()
     ws = wb.active
@@ -220,8 +220,8 @@ def apply_conditional_formatting(output_file):
     """
     Applique une mise en forme conditionnelle aux colonnes d'indices de similarité dans le fichier Excel.
     """
-    from openpyxl import load_workbook
-    from openpyxl.styles import PatternFill
+    from openpyxl import load_workbook # Permet de charger un fichier Excel existant pour le lire ou le modifier
+    from openpyxl.styles import PatternFill # Permet de définir des styles de remplissage (couleur) pour les cellules Excel
 
     wb = load_workbook(output_file)
     ws = wb.active
@@ -269,3 +269,5 @@ def main():
 if __name__ == "__main__":
     main()
     sys.exit(0)
+
+    # Fin du script
