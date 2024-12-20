@@ -85,7 +85,7 @@ def fetch_metadata_from_doi(doi):
             item = data["message"]
             return {
                 "Title": item.get("title", [None])[0],
-                "Journal": item.get("container-title", [None])[0],
+                "Journal": item.get("container-title", [None])[0] if item.get("container-title", [None]) else None,
                 "Authors": ", ".join(
                     [f"{author.get('given', '')} {author.get('family', '')}".strip() for author in item.get("author", [])]
                 ),
