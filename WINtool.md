@@ -30,7 +30,7 @@
 1. **Launch Auto Py to Exe**:
    - Open the command prompt and run:
      ```bash
-     auto-py-to-exe
+     auto-py-to-exe or python -m auto_py_to_exe
      ```
    - This will open a graphical user interface (GUI).
 
@@ -95,7 +95,7 @@
 1. **Lancer Auto Py to Exe** :
    - Ouvrez l'invite de commande et exécutez :
      ```bash
-     auto-py-to-exe
+     auto-py-to-exe ou python -m auto_py_to_exe
      ```
    - Cela ouvrira une interface graphique (GUI).
 
